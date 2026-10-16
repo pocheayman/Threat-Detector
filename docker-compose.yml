@@ -1,0 +1,10 @@
+services:
+  threat-detector:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      THREAT_READONLY: "0"      # set to 1 for a public read-only demo
+    volumes:
+      - threat-data:/app/data
+volumes:
+  threat-data:

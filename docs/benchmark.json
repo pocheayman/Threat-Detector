@@ -1,0 +1,172 @@
+{
+  "easy/rules": {
+    "attacks": 75,
+    "detected": 75,
+    "alerts": 81,
+    "false_positives": 0,
+    "recall": 1.0,
+    "precision": 1.0,
+    "f1": 1.0,
+    "fast_recall": 1.0,
+    "slow_recall": 0.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      0,
+      0
+    ],
+    "fp_causes": {}
+  },
+  "easy/ml": {
+    "attacks": 75,
+    "detected": 45,
+    "alerts": 45,
+    "false_positives": 0,
+    "recall": 0.6,
+    "precision": 1.0,
+    "f1": 0.7499999999999999,
+    "fast_recall": 0.6,
+    "slow_recall": 0.0,
+    "fast": [
+      45,
+      75
+    ],
+    "slow": [
+      0,
+      0
+    ],
+    "fp_causes": {}
+  },
+  "easy/hybrid": {
+    "attacks": 75,
+    "detected": 75,
+    "alerts": 81,
+    "false_positives": 0,
+    "recall": 1.0,
+    "precision": 1.0,
+    "f1": 1.0,
+    "fast_recall": 1.0,
+    "slow_recall": 0.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      0,
+      0
+    ],
+    "fp_causes": {}
+  },
+  "easy/hybrid + allowlist": {
+    "attacks": 75,
+    "detected": 75,
+    "alerts": 81,
+    "false_positives": 0,
+    "recall": 1.0,
+    "precision": 1.0,
+    "f1": 1.0,
+    "fast_recall": 1.0,
+    "slow_recall": 0.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      0,
+      0
+    ],
+    "fp_causes": {}
+  },
+  "_events_easy": 72487,
+  "hard/rules": {
+    "attacks": 110,
+    "detected": 75,
+    "alerts": 133,
+    "false_positives": 46,
+    "recall": 0.6818181818181818,
+    "precision": 0.6541353383458647,
+    "f1": 0.6676899462778204,
+    "fast_recall": 1.0,
+    "slow_recall": 0.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      0,
+      35
+    ],
+    "fp_causes": {
+      "shared office login storm": 15,
+      "VPN user": 31
+    }
+  },
+  "hard/ml": {
+    "attacks": 110,
+    "detected": 80,
+    "alerts": 80,
+    "false_positives": 0,
+    "recall": 0.7272727272727273,
+    "precision": 1.0,
+    "f1": 0.8421052631578948,
+    "fast_recall": 0.6,
+    "slow_recall": 1.0,
+    "fast": [
+      45,
+      75
+    ],
+    "slow": [
+      35,
+      35
+    ],
+    "fp_causes": {}
+  },
+  "hard/hybrid": {
+    "attacks": 110,
+    "detected": 110,
+    "alerts": 168,
+    "false_positives": 46,
+    "recall": 1.0,
+    "precision": 0.7261904761904762,
+    "f1": 0.8413793103448275,
+    "fast_recall": 1.0,
+    "slow_recall": 1.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      35,
+      35
+    ],
+    "fp_causes": {
+      "shared office login storm": 15,
+      "VPN user": 31
+    }
+  },
+  "hard/hybrid + allowlist": {
+    "attacks": 110,
+    "detected": 110,
+    "alerts": 153,
+    "false_positives": 31,
+    "recall": 1.0,
+    "precision": 0.7973856209150327,
+    "f1": 0.8872727272727273,
+    "fast_recall": 1.0,
+    "slow_recall": 1.0,
+    "fast": [
+      75,
+      75
+    ],
+    "slow": [
+      35,
+      35
+    ],
+    "fp_causes": {
+      "VPN user": 31
+    }
+  },
+  "_events_hard": 74366
+}

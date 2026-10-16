@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat Detector</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #17212b;
+  --muted: #566574;
+  --rule: #d3dae1;
+  --hover: #f3f6f9;
+  --crit: #c42b22;       --crit-ink: #ffffff;
+  --amber: #f0b445;      --amber-ink: #231700;
+  --t-brute_force: #2f5fb3;
+  --t-credential_stuffing: #12877a;
+  --t-impossible_travel: #8b4a8f;
+  --t-anomalous_activity: #c2410c;
+  --focus: #1d4ed8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f161d;
+    --surface: #17202a;
+    --ink: #e6ecf2;
+    --muted: #93a3b3;
+    --rule: #2a3744;
+    --hover: #1d2833;
+    --crit: #f0584e;     --crit-ink: #1a0503;
+    --amber: #e5a53a;    --amber-ink: #1c1200;
+    --t-brute_force: #6e9bea;
+    --t-credential_stuffing: #3fbfae;
+    --t-impossible_travel: #c48bc9;
+    --t-anomalous_activity: #f59e5b;
+    --focus: #8ab4ff;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+}
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; }
+
+/* header */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 28px 0 18px; }
+h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.01em; }
+.sub { margin: 2px 0 0; color: var(--muted); }
+.top-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ingest-note { color: var(--muted); font-size: 13px; }
+button, select, input[type="search"] {
+  font: inherit; color: inherit; background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 3px; padding: 6px 10px;
+}
+button { cursor: pointer; }
+button:hover { background: var(--hover); }
+button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
+button.primary:hover { opacity: .9; }
+button[disabled] { opacity: .5; cursor: default; }
+#notice { min-height: 22px; margin: 0 0 10px; color: var(--muted); }
+#notice.error { color: var(--crit); font-weight: 600; }
+
+/* figures */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.figure { background: var(--surface); padding: 14px 18px; }
+.figure b { display: block; font-size: 30px; line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.figure span { color: var(--muted); font-size: 13px; }
+.figure.crit b { color: var(--crit); }
+.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; background: var(--tc, var(--muted)); }
+
+/* layout */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 24px; margin-top: 24px; align-items: start; }
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 16px 18px; min-width: 0; }
+.panel h2 { margin: 0 0 12px; font-size: 15px; font-weight: 650; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.panel-head h2 { margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 4px 12px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
+.chart-box { position: relative; height: 230px; }
+
+/* top offenders */
+.offenders { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.offender { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid transparent; background: transparent; }
+.offender:hover { background: var(--hover); border-color: var(--rule); }
+.offender .ip { font-family: ui-monospace, "DejaVu Sans Mono", Menlo, monospace; font-size: 13px; }
+.offender .n { font-variant-numeric: tabular-nums; font-weight: 600; }
+.offender .bar { grid-column: 1 / -1; height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.offender .bar i { display: block; height: 100%; background: var(--tc, var(--muted)); }
+.offender .meta { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.hint { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+
+/* filters + table */
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.filters label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+.filters input[type="search"] { width: 150px; font-family: ui-monospace, "DejaVu Sans Mono", Menlo, monospace; font-size: 13px; }
+.filters .spacer { flex: 1; }
+.table-wrap { overflow-x: auto; border-top: 1px solid var(--rule); }
+table { width: 100%; border-collapse: collapse; min-width: 720px; }
+th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--hover); }
+tr.row td:first-child { box-shadow: inset 4px 0 0 var(--edge, transparent); }
+tr.row.critical { --edge: var(--crit); }
+tr.row.high { --edge: var(--amber); }
+tr.row.resolved td { color: var(--muted); }
+.mono { font-family: ui-monospace, "DejaVu Sans Mono", Menlo, monospace; font-size: 12.5px; }
+.sub-id { display: block; color: var(--muted); font-size: 12px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 12px; font-weight: 650; }
+.badge.critical { background: var(--crit); color: var(--crit-ink); }
+.badge.high { background: var(--amber); color: var(--amber-ink); }
+.takeover { display: block; color: var(--crit); font-size: 12px; font-weight: 600; }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; color: var(--muted); font-size: 13px; }
+.pager div { display: flex; gap: 8px; }
+.empty { padding: 36px 8px; text-align: center; color: var(--muted); }
+.empty h2 { margin: 0 0 6px; color: var(--ink); font-size: 18px; }
+.empty p { margin: 0 auto 14px; max-width: 46ch; }
+code { font-family: ui-monospace, "DejaVu Sans Mono", Menlo, monospace; font-size: 12.5px; background: var(--hover); padding: 1px 5px; border-radius: 2px; }
+
+/* detail drawer: slides in when a row is opened */
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100%); z-index: 10;
+  background: var(--surface); border-left: 1px solid var(--rule); padding: 20px 22px; overflow: auto;
+  transform: translateX(100%); visibility: hidden; transition: transform .18s ease, visibility 0s .18s;
+  box-shadow: -12px 0 30px rgba(0, 0, 0, .12);
+}
+.drawer.open { transform: none; visibility: visible; transition: transform .18s ease; }
+.drawer-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.drawer h2 { margin: 0 0 6px; font-size: 18px; }
+.drawer .desc { margin: 14px 0; }
+dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; margin: 16px 0; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chips span { background: var(--hover); border: 1px solid var(--rule); border-radius: 2px; padding: 0 6px; font-size: 12px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+a { color: var(--focus); }
+
+@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .wrap { padding: 0 16px 40px; } dl { grid-template-columns: 1fr; gap: 2px; } dt { margin-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { .drawer, .drawer.open { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Threat Detector</h1>
+      <p class="sub">Authentication alerts, mapped to MITRE ATT&amp;CK</p>
+    </div>
+    <div class="top-actions">
+      <span class="ingest-note" id="ingest-note"></span>
+      <input type="file" id="file" accept=".log,.txt,text/plain" hidden>
+      <button class="primary" id="upload-btn" type="button">Upload log file</button>
+    </div>
+  </header>
+
+  <p id="notice" role="status" aria-live="polite"></p>
+  <noscript><p>This dashboard needs JavaScript.</p></noscript>
+
+  <section class="figures" id="figures" aria-label="Summary"></section>
+
+  <section class="empty panel" id="empty" hidden style="margin-top:24px">
+    <h2>No alerts yet</h2>
+    <p>Upload an authentication log to run the detectors, or load the sample data from a terminal with
+       <code>python -m src.ingest data/auth.log</code> and refresh this page.</p>
+    <button class="primary" id="upload-btn-2" type="button">Upload log file</button>
+  </section>
+
+  <div class="layout" id="layout">
+    <div class="stack">
+      <section class="panel" aria-labelledby="h-timeline">
+        <div class="panel-head">
+          <h2 id="h-timeline">Alerts over time</h2>
+          <div class="seg" role="group" aria-label="Time bucket">
+            <button type="button" data-bucket="day" aria-pressed="true">Per day</button>
+            <button type="button" data-bucket="hour" aria-pressed="false">Per hour</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="timeline" role="img" aria-label="Stacked bar chart of alerts over time, split by attack type"></canvas></div>
+        <p class="hint">Times are UTC.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-alerts">
+        <div class="panel-head"><h2 id="h-alerts">Alerts</h2><span class="ingest-note" id="count-note"></span></div>
+        <div class="filters">
+          <label>Severity
+            <select id="f-severity"><option value="">All</option><option value="critical">Critical</option><option value="high">High</option></select></label>
+          <label>Attack type
+            <select id="f-type"><option value="">All</option><option value="brute_force">Brute force</option>
+              <option value="credential_stuffing">Credential stuffing</option><option value="impossible_travel">Impossible travel</option><option value="anomalous_activity">ML anomaly</option></select></label>
+          <label>Status
+            <select id="f-status"><option value="">All</option><option value="open">Open</option>
+              <option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option></select></label>
+          <label>Source IP starts with
+            <input type="search" id="f-ip" placeholder="203.0.113." autocomplete="off" spellcheck="false" maxlength="45"></label>
+          <label>Sort by
+            <select id="f-sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option>
+              <option value="severe">Most severe first</option><option value="attempts">Most attempts first</option></select></label>
+          <span class="spacer"></span>
+          <button type="button" id="clear" hidden>Clear filters</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Time (UTC)</th><th>Severity</th><th>Attack</th><th>Source IP</th><th>Target</th>
+              <th class="num">Attempts</th><th>Status</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="pager"><span id="range"></span>
+          <div><button type="button" id="prev">Previous</button><button type="button" id="next">Next</button></div></div>
+      </section>
+    </div>
+
+    <aside class="panel" aria-labelledby="h-top">
+      <h2 id="h-top">Top offending IPs</h2>
+      <ul class="offenders" id="offenders"></ul>
+      <p class="hint">Ranked by failed login attempts. Select one to filter the alert list.</p>
+    </aside>
+  </div>
+</div>
+
+<aside class="drawer" id="drawer" aria-labelledby="d-title" aria-hidden="true"></aside>
+
+<script src="/static/vendor/chart.umd.js"></script>
+<script>
+"use strict";
+const TYPE_LABEL = { brute_force: "Brute force", credential_stuffing: "Credential stuffing", impossible_travel: "Impossible travel", anomalous_activity: "ML anomaly" };
+const TYPES = Object.keys(TYPE_LABEL);
+const SORTS = { newest: ["start", "desc"], oldest: ["start", "asc"], severe: ["severity", "desc"], attempts: ["count", "desc"] };
+const PAGE_SIZE = 15;
+
+const state = { page: 0, bucket: "day", total: 0, selectedRow: null, readonly: false };
+let chart = null, lastTimeline = [], lastItems = [];
+
+/* Build DOM with textContent only: log data (usernames, descriptions) is attacker-controlled. */
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v === true) n.setAttribute(k, "");
+    else n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fmtNum = (n) => Number(n).toLocaleString("en-US");
+const fmtTime = (iso) => iso.slice(0, 10) + " " + iso.slice(11, 19);
+
+function fmtDuration(startIso, endIso) {
+  const s = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 1000);
+  if (s < 60) return s + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m " + (s % 60) + "s";
+  return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+}
+function mitreUrl(id) { return "https://attack.mitre.org/techniques/" + id.replace(".", "/") + "/"; }
+
+function say(message, isError = false) {
+  const n = $("notice");
+  n.textContent = message;
+  n.className = isError ? "error" : "";
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let body = null;
+  try { body = await res.json(); } catch (_) { /* non-JSON error */ }
+  if (!res.ok) {
+    let detail = body && body.detail;
+    if (Array.isArray(detail)) detail = detail.map((d) => d.msg).join("; ");
+    throw new Error(detail || "Request failed (" + res.status + ")");
+  }
+  return body;
+}
+
+/* ---------- filters ---------- */
+function filters() {
+  const [sort, order] = SORTS[$("f-sort").value];
+  return { severity: $("f-severity").value, type: $("f-type").value, status: $("f-status").value,
+           ip: $("f-ip").value.trim(), sort, order };
+}
+function filtersActive() {
+  const f = filters();
+  return Boolean(f.severity || f.type || f.status || f.ip);
+}
+
+/* ---------- renderers ---------- */
+function renderFigures(s) {
+  const byType = s.by_type || {};
+  const figure = (value, label, cls = "", type = null) =>
+    el("div", { class: "figure " + cls },
+       el("b", { text: fmtNum(value) }),
+       el("span", {}, type ? el("i", { class: "swatch", style: "--tc: var(--t-" + type + ")" }) : null, label));
+  $("figures").replaceChildren(
+    figure(s.total, "Alerts"),
+    figure((s.by_status || {}).open || 0, "Open"),
+    figure((s.by_severity || {}).critical || 0, "Critical", "crit"),
+    ...TYPES.map((t) => figure(byType[t] || 0, TYPE_LABEL[t], "", t)));
+  const li = s.last_ingest;
+  $("ingest-note").textContent = li
+    ? "Last analyzed " + fmtNum(li.parsed) + " log lines" + (li.rejected ? " (" + fmtNum(li.rejected) + " skipped)" : "")
+    : "";
+}
+
+function renderOffenders(list) {
+  const box = $("offenders");
+  if (!list.length) { box.replaceChildren(el("li", { class: "hint", text: "No brute-force or stuffing sources in this data." })); return; }
+  const max = Math.max(...list.map((o) => o.attempts));
+  box.replaceChildren(...list.map((o) => {
+    const type = o.types.includes("brute_force") ? "brute_force" : o.types[0];
+    return el("li", {},
+      el("button", { type: "button", class: "offender", title: "Filter alerts to " + o.ip,
+        onclick: () => { $("f-ip").value = o.ip; state.page = 0; loadAlerts(); $("h-alerts").scrollIntoView({ behavior: "smooth" }); } },
+        el("span", { class: "ip", text: o.ip }),
+        el("span", { class: "n", text: fmtNum(o.attempts) }),
+        el("span", { class: "bar" }, el("i", { style: "width:" + Math.max(4, (o.attempts / max) * 100) + "%; --tc: var(--t-" + type + ")" })),
+        el("span", { class: "meta", text: o.types.map((t) => TYPE_LABEL[t]).join(", ") + (o.breached ? ". Login succeeded afterwards" : "") })));
+  }));
+}
+
+function bucketRange(rows, bucket) {
+  const keys = [...new Set(rows.map((r) => r.bucket))].sort();
+  if (!keys.length) return [];
+  const step = bucket === "day" ? 86400000 : 3600000;
+  const width = bucket === "day" ? 10 : 13;
+  const parse = (k) => Date.parse(bucket === "day" ? k + "T00:00:00Z" : k + ":00:00Z");
+  const out = [];
+  for (let t = parse(keys[0]); t <= parse(keys[keys.length - 1]) && out.length < 1000; t += step) {
+    out.push(new Date(t).toISOString().slice(0, width));
+  }
+  return out;
+}
+
+function renderTimeline(rows) {
+  lastTimeline = rows;
+  const keys = bucketRange(rows, state.bucket);
+  const labels = keys.map((k) => state.bucket === "day" ? k.slice(5) : k.slice(5, 10) + " " + k.slice(11) + "h");
+  const lookup = {};
+  rows.forEach((r) => { lookup[r.bucket + "|" + r.type] = r.count; });
+  const datasets = TYPES.map((t) => ({
+    label: TYPE_LABEL[t], backgroundColor: css("--t-" + t),
+    data: keys.map((k) => lookup[k + "|" + t] || 0), borderRadius: 1, maxBarThickness: 46,
+  }));
+  Chart.defaults.color = css("--muted");
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  if (chart) chart.destroy();
+  chart = new Chart($("timeline"), {
+    type: "bar", data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, grid: { color: css("--rule") } },
+      },
+      plugins: { legend: { position: "top", align: "start", labels: { boxWidth: 10, boxHeight: 10 } } },
+    },
+  });
+}
+
+function targetText(a) { return a.users.length === 1 ? a.users[0] : fmtNum(a.users.length) + " accounts"; }
+
+function renderRows(page) {
+  lastItems = page.items;
+  state.total = page.total;
+  const body = $("rows");
+  if (!page.items.length) {
+    body.replaceChildren(el("tr", {}, el("td", { colspan: 7 },
+      el("div", { class: "empty" }, el("p", { text: "No alerts match these filters." }),
+         el("button", { type: "button", onclick: clearFilters, text: "Clear filters" })))));
+  } else {
+    body.replaceChildren(...page.items.map((a) => {
+      const open = () => openDrawer(a, tr);
+      const tr = el("tr", { class: "row " + a.severity + " " + a.status, tabindex: "0", "data-id": a.id,
+        onclick: open, onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } } },
+        el("td", { class: "mono", text: fmtTime(a.start) }),
+        el("td", {}, el("span", { class: "badge " + a.severity, text: a.severity === "critical" ? "Critical" : "High" })),
+        el("td", {}, el("i", { class: "swatch", style: "--tc: var(--t-" + a.type + ")" }), TYPE_LABEL[a.type] || a.type,
+           el("span", { class: "sub-id", text: a.mitre_id }),
+           a.breached ? el("span", { class: "takeover", text: "Account likely taken over" }) : null),
+        el("td", { class: "mono", text: a.ip }),
+        el("td", { text: targetText(a) }),
+        el("td", { class: "num", text: a.type === "impossible_travel" ? "2 logins" : fmtNum(a.count) }),
+        el("td", { text: a.status[0].toUpperCase() + a.status.slice(1) }));
+      return tr;
+    }));
+  }
+  const from = page.total ? page.offset + 1 : 0, to = Math.min(page.offset + page.limit, page.total);
+  $("range").textContent = "Showing " + from + " to " + to + " of " + fmtNum(page.total);
+  $("count-note").textContent = filtersActive() ? fmtNum(page.total) + " matching" : "";
+  $("prev").disabled = page.offset === 0;
+  $("next").disabled = page.offset + page.limit >= page.total;
+  $("clear").hidden = !filtersActive();
+}
+
+/* ---------- detail drawer ---------- */
+function closeDrawer() {
+  $("drawer").classList.remove("open");
+  $("drawer").setAttribute("aria-hidden", "true");
+  if (state.selectedRow && document.contains(state.selectedRow)) state.selectedRow.focus();
+  state.selectedRow = null;
+}
+
+async function setStatus(id, status) {
+  try {
+    const updated = await api("/api/alerts/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" },
+                                                     body: JSON.stringify({ status }) });
+    say("Alert " + id + " marked " + status + ".");
+    const row = state.selectedRow;
+    await Promise.all([loadStats(), loadAlerts()]);
+    const fresh = document.querySelector('tr.row[data-id="' + id + '"]');
+    openDrawer(updated, fresh || row, true);
+  } catch (e) { say(e.message, true); }
+}
+
+function openDrawer(a, row, keepFocus = false) {
+  state.selectedRow = row;
+  const users = a.users.slice(0, 40);
+  const actions = [];
+  if (state.readonly) { /* demo mode: view only */ }
+  else if (a.status === "open") actions.push(el("button", { type: "button", onclick: () => setStatus(a.id, "acknowledged"), text: "Acknowledge" }));
+  if (!state.readonly && a.status !== "resolved") actions.push(el("button", { type: "button", class: "primary", onclick: () => setStatus(a.id, "resolved"), text: "Mark resolved" }));
+  if (!state.readonly && a.status !== "open") actions.push(el("button", { type: "button", onclick: () => setStatus(a.id, "open"), text: "Reopen" }));
+
+  const d = $("drawer");
+  d.replaceChildren(
+    el("div", { class: "drawer-head" },
+      el("div", {},
+        el("h2", { id: "d-title", text: TYPE_LABEL[a.type] || a.type }),
+        el("span", { class: "badge " + a.severity, text: a.severity === "critical" ? "Critical" : "High" })),
+      el("button", { type: "button", id: "d-close", onclick: closeDrawer, "aria-label": "Close details", text: "Close" })),
+    el("p", { class: "desc", text: a.description }),
+    el("dl", {},
+      el("dt", { text: "Source IP" }), el("dd", { class: "mono", text: a.ip }),
+      el("dt", { text: a.users.length === 1 ? "Account" : "Accounts (" + fmtNum(a.users.length) + ")" }),
+      el("dd", {}, el("div", { class: "chips" }, users.map((u) => el("span", { text: u })),
+        a.users.length > users.length ? el("span", { text: "and " + (a.users.length - users.length) + " more" }) : null)),
+      el("dt", { text: "Window" }), el("dd", { class: "mono", text: fmtTime(a.start) + " to " + fmtTime(a.end) + " (" + fmtDuration(a.start, a.end) + ")" }),
+      a.type === "impossible_travel" ? null : el("dt", { text: "Failed attempts" }),
+      a.type === "impossible_travel" ? null : el("dd", { text: fmtNum(a.count) }),
+      el("dt", { text: "Technique" }),
+      el("dd", {}, el("a", { href: mitreUrl(a.mitre_id), target: "_blank", rel: "noopener noreferrer", text: a.mitre_id + " " + a.mitre_name })),
+      el("dt", { text: "Status" }), el("dd", { text: a.status[0].toUpperCase() + a.status.slice(1) })),
+    el("div", { class: "actions" }, actions));
+  d.classList.add("open");
+  d.setAttribute("aria-hidden", "false");
+  if (!keepFocus) $("d-close").focus();
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("drawer").classList.contains("open")) closeDrawer(); });
+
+/* ---------- data loading ---------- */
+async function loadStats() {
+  const s = await api("/api/stats");
+  renderFigures(s);
+  renderOffenders(s.top_ips);
+  const empty = s.total === 0 && !filtersActive();
+  $("empty").hidden = !empty;
+  $("layout").hidden = empty;
+  $("figures").hidden = empty;
+  return s;
+}
+async function loadTimeline() { renderTimeline(await api("/api/timeline?bucket=" + state.bucket)); }
+async function loadAlerts() {
+  const f = filters();
+  const q = new URLSearchParams({ sort: f.sort, order: f.order, limit: PAGE_SIZE, offset: state.page * PAGE_SIZE });
+  ["severity", "type", "status", "ip"].forEach((k) => { if (f[k]) q.set(k, f[k]); });
+  renderRows(await api("/api/alerts?" + q));
+}
+async function refresh() {
+  try { await Promise.all([loadStats(), loadTimeline(), loadAlerts()]); }
+  catch (e) { say(e.message, true); }
+}
+
+function clearFilters() {
+  ["f-severity", "f-type", "f-status"].forEach((id) => { $(id).value = ""; });
+  $("f-ip").value = ""; $("f-sort").value = "newest";
+  state.page = 0; loadAlerts().catch((e) => say(e.message, true));
+}
+
+/* ---------- upload ---------- */
+async function upload(file) {
+  if (!file) return;
+  const buttons = [$("upload-btn"), $("upload-btn-2")];
+  buttons.forEach((b) => { b.disabled = true; });
+  say("Analyzing " + file.name + "…");
+  try {
+    const text = await file.text();
+    const r = await api("/api/ingest", { method: "POST", headers: { "Content-Type": "text/plain" }, body: text });
+    say("Analyzed " + fmtNum(r.parsed) + " log lines" + (r.rejected ? " (" + fmtNum(r.rejected) + " skipped)" : "") +
+        " and found " + fmtNum(r.alerts) + " alerts.");
+    state.page = 0;
+    await refresh();
+  } catch (e) { say(e.message, true); }
+  finally { buttons.forEach((b) => { b.disabled = false; }); $("file").value = ""; }
+}
+
+/* ---------- wiring ---------- */
+$("upload-btn").addEventListener("click", () => $("file").click());
+$("upload-btn-2").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", (e) => upload(e.target.files[0]));
+["f-severity", "f-type", "f-status", "f-sort"].forEach((id) =>
+  $(id).addEventListener("change", () => { state.page = 0; loadAlerts().catch((e) => say(e.message, true)); }));
+let ipTimer;
+$("f-ip").addEventListener("input", () => {
+  clearTimeout(ipTimer);
+  ipTimer = setTimeout(() => { state.page = 0; loadAlerts().catch((e) => say(e.message, true)); }, 250);
+});
+$("clear").addEventListener("click", clearFilters);
+$("prev").addEventListener("click", () => { state.page = Math.max(0, state.page - 1); loadAlerts(); });
+$("next").addEventListener("click", () => { state.page += 1; loadAlerts(); });
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  state.bucket = b.dataset.bucket;
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  loadTimeline().catch((e) => say(e.message, true));
+}));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderTimeline(lastTimeline));
+
+// Ask the server whether this is a read-only demo; if so, hide upload and triage controls.
+fetch("/api/config").then((r) => r.json()).then((c) => {
+  state.readonly = Boolean(c.readonly);
+  if (state.readonly) {
+    ["upload-btn", "upload-btn-2"].forEach((id) => { $(id).hidden = true; });
+    $("ingest-note").title = "Read-only demo: run it locally to upload your own logs.";
+    say("Read-only demo with simulated data. Run it locally to upload logs and triage alerts.");
+  }
+}).catch(() => {});
+
+refresh();
+</script>
+</body>
+</html>
